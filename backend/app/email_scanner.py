@@ -10,11 +10,12 @@ No external dependencies — uses Python stdlib imaplib + email only.
 
 import asyncio
 import email
+import email.message
 import imaplib
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.header import decode_header
 from typing import Optional
 
@@ -48,10 +49,13 @@ DATE_FMTS = [
     ("%d %b %Y",  r'(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})'),
     ("%B %d %Y",  r'(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})'),
     ("%b %d %Y",  r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})'),
-    ("%Y-%m-%d",  r'(\d{4})-(\d{2})-(\d{2})'),
-    ("%Y/%m/%d",  r'(\d{4})/(\d{2})/(\d{2})'),
-    ("%d/%m/%Y",  r'(\d{2})/(\d{2})/(\d{4})'),
-    ("%d-%m-%Y",  r'(\d{2})-(\d{2})-(\d{4})'),
+    # NB: _parse_date rejoins the captured groups with spaces before strptime,
+    # so numeric formats must be space-separated regardless of the separator
+    # used in the email.
+    ("%Y %m %d",  r'(\d{4})-(\d{2})-(\d{2})'),
+    ("%Y %m %d",  r'(\d{4})/(\d{2})/(\d{2})'),
+    ("%d %m %Y",  r'(\d{2})/(\d{2})/(\d{4})'),
+    ("%d %m %Y",  r'(\d{2})-(\d{2})-(\d{4})'),
 ]
 
 # Carrier email domains we trust
@@ -123,8 +127,6 @@ def _parse_date(snippet: str) -> Optional[datetime]:
         # Reconstruct a clean date string from groups
         groups = [g.strip(",") for g in m.groups()]
         date_str = " ".join(groups)
-        # Two-digit year → four-digit
-        date_str = re.sub(r'\b(\d{2})\b$', lambda x: str(2000 + int(x.group())) if int(x.group()) < 50 else str(1900 + int(x.group())), date_str)
         try:
             return datetime.strptime(date_str, fmt)
         except ValueError:
@@ -169,39 +171,41 @@ def _fetch_carrier_emails(already_seen: set[str]) -> list[tuple[str, str, str]]:
     already processed. Raises on connection failure.
     """
     imap = imaplib.IMAP4_SSL(settings.EMAIL_IMAP_SERVER)
-    imap.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
-    imap.select("INBOX")
+    try:
+        imap.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
+        imap.select("INBOX")
 
-    results = []
+        results = []
 
-    # Search for emails in the last 60 days
-    since_date = datetime.now(timezone.utc).strftime("%d-%b-%Y")
-    # Try carrier domain search; fall back to all recent
-    _, data = imap.search(None, f'(SINCE "{since_date}" UNSEEN)')
-    if not data or not data[0]:
+        # Search for emails in the last 60 days
+        since_date = (datetime.now(timezone.utc) - timedelta(days=60)).strftime("%d-%b-%Y")
         _, data = imap.search(None, f'SINCE "{since_date}"')
 
-    uids = data[0].split() if data[0] else []
+        uids = data[0].split() if data and data[0] else []
 
-    for uid in uids[-200:]:  # cap at 200 to avoid overwhelming
-        _, msg_data = imap.fetch(uid, "(RFC822)")
-        if not msg_data or not msg_data[0]:
-            continue
-        raw = msg_data[0][1]
-        msg = email.message_from_bytes(raw)
+        for uid in uids[-200:]:  # cap at 200 to avoid overwhelming
+            _, msg_data = imap.fetch(uid, "(RFC822)")
+            if not msg_data or not msg_data[0]:
+                continue
+            raw = msg_data[0][1]
+            msg = email.message_from_bytes(raw)
 
-        mid = _message_id(msg)
-        if mid in already_seen:
-            continue
-        if not _is_carrier_email(msg):
-            continue
+            mid = _message_id(msg)
+            if mid in already_seen:
+                continue
+            if not _is_carrier_email(msg):
+                continue
 
-        body = _extract_text(msg)
-        domain = _sender_domain(msg) or "unknown"
-        results.append((mid, domain, body))
+            body = _extract_text(msg)
+            domain = _sender_domain(msg) or "unknown"
+            results.append((mid, domain, body))
 
-    imap.logout()
-    return results
+        return results
+    finally:
+        try:
+            imap.logout()
+        except Exception:
+            pass
 
 
 # ── Async orchestration ──────────────────────────────────────────────────────
@@ -232,7 +236,7 @@ async def _run_scan_async() -> tuple[int, int]:
 
             if not containers or not new_eta:
                 # Still mark as processed so we skip it next time
-                db.add(ProcessedEmail(message_id=mid))
+                await db.merge(ProcessedEmail(message_id=mid))
                 continue
 
             for cnum in set(containers):
@@ -271,7 +275,7 @@ async def _run_scan_async() -> tuple[int, int]:
                 updates_made += 1
                 logger.info("Updated ETA for %s via email: %s → %s", cnum, old_str, new_str)
 
-            db.add(ProcessedEmail(message_id=mid))
+            await db.merge(ProcessedEmail(message_id=mid))
 
         await db.commit()
 
