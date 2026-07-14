@@ -209,7 +209,7 @@ export function SettingsPage() {
           <div className="flex flex-wrap gap-2">
             {[
               "Maersk", "ZIM", "MSC", "Hapag-Lloyd", "ONE", "CMA-CGM",
-              "Evergreen", "COSCO", "Yang Ming", "HMM", "PIL", "Arkas",
+              "OOCL", "Evergreen", "COSCO", "Yang Ming", "HMM", "PIL", "Arkas",
             ].map(c => (
               <span key={c} className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
                 {c}

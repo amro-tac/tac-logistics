@@ -62,6 +62,7 @@ DATE_FMTS = [
 CARRIER_DOMAINS = {
     "maersk.com", "zim.com", "msc.com", "hlag.com", "hapag-lloyd.com",
     "one-line.com", "cma-cgm.com", "evergreen-line.com", "cosco.com",
+    "oocl.com", "cosco-shipping.com",
     "yangming.com", "hmm21.com", "pilship.com", "arkas.com", "ictsi.com",
 }
 

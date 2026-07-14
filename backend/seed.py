@@ -25,6 +25,7 @@ CARRIERS = [
     {"name": "ONE",         "scac": "ONEY", "default_free_days": 5},
     {"name": "CMA CGM",     "scac": "CMAU", "default_free_days": 5},
     {"name": "Evergreen",   "scac": "EASU", "default_free_days": 5},
+    {"name": "OOCL",        "scac": "OOLU", "default_free_days": 5},
 ]
 
 

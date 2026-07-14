@@ -12,6 +12,7 @@ const DEMO_CARRIERS: CarrierOption[] = [
   { id: "uuid-msc",   name: "MSC",         scac: "MSCU", default_free_days: 5 },
   { id: "uuid-hapag", name: "Hapag-Lloyd", scac: "HLCU", default_free_days: 7 },
   { id: "uuid-one",   name: "ONE",         scac: "ONEY", default_free_days: 5 },
+  { id: "uuid-oocl",  name: "OOCL",        scac: "OOLU", default_free_days: 5 },
 ];
 
 const CONTAINER_TYPES = ["20GP", "40GP", "40HQ", "reefer"] as const;
