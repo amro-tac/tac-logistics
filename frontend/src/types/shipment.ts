@@ -52,6 +52,8 @@ export interface Shipment {
   status: ShipmentStatus;
   clearance_path: ClearancePath;
   carrier_id: string | null;
+  carrier_name: string | null;
+  carrier_free_days: number | null;
   risk_flag: RiskFlag;
   bl_number: string | null;
   vessel_name: string | null;

@@ -124,6 +124,8 @@ class ShipmentOut(BaseModel):
     clearance_path: ClearancePath
     risk_flag: RiskFlag
     carrier_id: Optional[UUID]
+    carrier_name: Optional[str] = None
+    carrier_free_days: Optional[int] = None
     bl_number: Optional[str]
     vessel_name: Optional[str]
     voyage_number: Optional[str]

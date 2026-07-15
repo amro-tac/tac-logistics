@@ -27,6 +27,8 @@ const MOCK_DRAFT: Shipment = {
   status: "draft",
   clearance_path: "direct_pa",
   carrier_id: null,
+  carrier_name: null,
+  carrier_free_days: null,
   risk_flag: "ok",
   bl_number: null,
   vessel_name: null,
@@ -52,6 +54,8 @@ const MOCK_DETAIL: Shipment = {
   status: "in_transit",
   clearance_path: "direct_pa",
   carrier_id: "zim",
+  carrier_name: "ZIM",
+  carrier_free_days: 5,
   risk_flag: "warning",
   bl_number: "ZIMU123456789",
   vessel_name: "ZIM IBERIA",
@@ -386,7 +390,12 @@ export function ShipmentDetailPage() {
 
         {/* Demurrage counter — shown from at_port onwards */}
         {(["at_port", "customs", "released"] as ShipmentStatus[]).includes(shipment.status) && (
-          <DemurrageCard ata={shipment.ata} containerCount={shipment.containers.length || 1} />
+          <DemurrageCard
+            ata={shipment.ata}
+            freeDays={shipment.carrier_free_days ?? 5}
+            carrierName={shipment.carrier_name}
+            containerCount={shipment.containers.length || 1}
+          />
         )}
 
         {/* Timeline — hidden for drafts with no events */}

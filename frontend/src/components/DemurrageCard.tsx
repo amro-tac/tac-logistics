@@ -4,12 +4,13 @@ import { useLanguage } from "../lib/LanguageContext";
 interface Props {
   ata: string | null;
   freeDays?: number;
+  carrierName?: string | null;
   containerCount?: number;
 }
 
 const DEFAULT_RATE = 150;
 
-export function DemurrageCard({ ata, freeDays = 5, containerCount = 1 }: Props) {
+export function DemurrageCard({ ata, freeDays = 5, carrierName, containerCount = 1 }: Props) {
   const { t } = useLanguage();
   const [rate, setRate] = useState(DEFAULT_RATE);
 
@@ -29,6 +30,8 @@ export function DemurrageCard({ ata, freeDays = 5, containerCount = 1 }: Props) 
   const dailyTotal = rate * containerCount;           // total across all containers
   const accrued    = daysOver * dailyTotal;
   const isOverdue  = daysOver > 0;
+  // Warn before charges start — the whole point is to act inside free time.
+  const approaching = !isOverdue && daysLeft <= 2;
 
   const fmtUsd = (n: number) =>
     "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -38,20 +41,29 @@ export function DemurrageCard({ ata, freeDays = 5, containerCount = 1 }: Props) 
   const projected30 = Math.max(0, 30 - freeDays) * dailyTotal;
 
   return (
-    <div className={`bg-white rounded-xl border p-5 ${isOverdue ? "border-red-300" : "border-slate-200"}`}>
+    <div className={`bg-white rounded-xl border p-5 ${isOverdue ? "border-red-300" : approaching ? "border-amber-300" : "border-slate-200"}`}>
       <div className="flex items-start justify-between gap-4 mb-4">
         <h2 className="text-sm font-semibold text-slate-700">{t.demurrageTitle}</h2>
-        {isOverdue && (
+        {isOverdue ? (
           <span className="shrink-0 inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
             {t.demurrageOverdue(daysOver)}
+          </span>
+        ) : approaching && (
+          <span className="shrink-0 inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            {daysLeft === 0 ? "Free time ends today" : `Free time ends in ${daysLeft}d`}
           </span>
         )}
       </div>
 
       {/* Main stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <Stat label={t.demurrageFreeTime(freeDays)} value={`${freeDays}d`} color="text-slate-700" />
+        <Stat
+          label={carrierName ? `${t.demurrageFreeTime(freeDays)} · ${carrierName}` : t.demurrageFreeTime(freeDays)}
+          value={`${freeDays}d`}
+          color="text-slate-700"
+        />
         <Stat
           label={t.demurrageElapsed(elapsed)}
           value={`${elapsed}d`}
@@ -68,7 +80,7 @@ export function DemurrageCard({ ata, freeDays = 5, containerCount = 1 }: Props) 
       <div className="h-2 bg-slate-100 rounded-full mb-4 overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${
-            isOverdue ? "bg-red-500" : elapsed / freeDays > 0.7 ? "bg-amber-400" : "bg-green-500"
+            isOverdue ? "bg-red-500" : approaching || elapsed / freeDays > 0.7 ? "bg-amber-400" : "bg-green-500"
           }`}
           style={{ width: `${Math.min(100, (elapsed / freeDays) * 100)}%` }}
         />

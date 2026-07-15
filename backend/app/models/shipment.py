@@ -72,6 +72,16 @@ class Shipment(TenantScoped):
         cascade="all, delete-orphan",
     )
 
+    # Convenience fields for the API — read from the eager-loaded carrier so the
+    # demurrage card knows the real free-time allowance (varies by carrier).
+    @property
+    def carrier_name(self) -> str | None:
+        return self.carrier.name if self.carrier else None
+
+    @property
+    def carrier_free_days(self) -> int | None:
+        return self.carrier.default_free_days if self.carrier else None
+
 
 class Container(Base):
     __tablename__ = "containers"
