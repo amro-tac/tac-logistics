@@ -14,9 +14,12 @@ from app.deps import get_current_user, get_current_tenant_id
 from app.models.shipment import Shipment, ShipmentStatus, Container
 from app.models.tracking import TrackingEvent, TrackingEventType, TrackingSource
 from app.models.user import User
+from app.models.carrier import Carrier
+from app.api.v1.tracking import detect_carrier_name
 from app.schemas.shipment import (
     ShipmentCreate, ShipmentBook, ShipmentUpdate,
     ShipmentOut, ShipmentListItem, CommoditySearchResult,
+    BulkShipmentCreate, BulkShipmentResult, BulkShipmentResultItem,
 )
 from pydantic import BaseModel
 
@@ -123,6 +126,73 @@ async def create_shipment(
         select(Shipment).options(*_load_options()).where(Shipment.id == shipment.id)
     )
     return result.scalar_one()
+
+
+# ── Bulk create drafts from a list of B/Ls ────────────────────────────────────
+
+@router.post("/bulk", response_model=BulkShipmentResult)
+async def bulk_create_shipments(
+    body: BulkShipmentCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create one Draft shipment per bill of lading, auto-detecting the carrier
+    from the B/L prefix and skipping any B/L that already exists."""
+    tenant_id = user.tenant_id
+
+    # Match detected carrier names to this tenant's carrier records (by name).
+    carriers = (await db.execute(select(Carrier))).scalars().all()
+    by_name = {c.name.lower(): c for c in carriers}
+
+    # Bills already in the system for this tenant — don't create duplicates.
+    existing_rows = await db.execute(
+        select(Shipment.bl_number).where(
+            Shipment.tenant_id == tenant_id, Shipment.bl_number.isnot(None)
+        )
+    )
+    seen: set[str] = {b.lower() for b in existing_rows.scalars().all() if b}
+
+    items: list[BulkShipmentResultItem] = []
+    created = skipped = invalid = 0
+
+    for raw in body.bl_numbers:
+        bl = (raw or "").strip().upper()
+        if not bl:
+            continue
+        if len(bl) < 6 or not bl.isalnum():
+            invalid += 1
+            items.append(BulkShipmentResultItem(bl_number=bl or raw, outcome="invalid"))
+            continue
+        if bl.lower() in seen:
+            skipped += 1
+            items.append(BulkShipmentResultItem(bl_number=bl, outcome="skipped_duplicate"))
+            continue
+
+        detected = detect_carrier_name(bl)
+        carrier = by_name.get(detected.lower()) if detected != "Unknown Carrier" else None
+
+        shipment = Shipment(
+            tenant_id=tenant_id,
+            reference=_generate_reference(tenant_id),
+            clearance_path=body.clearance_path,
+            bl_number=bl,
+            carrier_id=carrier.id if carrier else None,
+        )
+        db.add(shipment)
+        await db.flush()  # populate shipment.id
+        seen.add(bl.lower())
+        created += 1
+        items.append(BulkShipmentResultItem(
+            bl_number=bl,
+            outcome="created",
+            shipment_id=shipment.id,
+            reference=shipment.reference,
+            carrier_name=None if detected == "Unknown Carrier" else detected,
+            carrier_matched=carrier is not None,
+        ))
+
+    await db.commit()
+    return BulkShipmentResult(created=created, skipped=skipped, invalid=invalid, items=items)
 
 
 # ── Get detail ────────────────────────────────────────────────────────────────

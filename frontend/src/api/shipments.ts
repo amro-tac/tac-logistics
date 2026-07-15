@@ -107,7 +107,29 @@ export interface CommoditySearchResult {
   bl_number: string | null;
 }
 
+export interface BulkResultItem {
+  bl_number: string;
+  outcome: "created" | "skipped_duplicate" | "invalid";
+  shipment_id: string | null;
+  reference: string | null;
+  carrier_name: string | null;
+  carrier_matched: boolean;
+}
+
+export interface BulkResult {
+  created: number;
+  skipped: number;
+  invalid: number;
+  items: BulkResultItem[];
+}
+
 export const api = {
+  bulkCreateShipments: (bl_numbers: string[], clearance_path: "direct_pa" | "israeli_only") =>
+    request<BulkResult>("/shipments/bulk", {
+      method: "POST",
+      body: JSON.stringify({ bl_numbers, clearance_path }),
+    }),
+
   searchByCommodity: (q: string) =>
     request<CommoditySearchResult[]>(`/shipments/search/commodity?q=${encodeURIComponent(q)}`),
 

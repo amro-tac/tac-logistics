@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -65,6 +65,28 @@ class ShipmentCreate(BaseModel):
     supplier_id: Optional[UUID] = None
     clearance_path: ClearancePath = ClearancePath.DIRECT_PA
     notes: Optional[str] = None
+
+
+class BulkShipmentCreate(BaseModel):
+    """Create one Draft per B/L, auto-detecting the carrier from the prefix."""
+    bl_numbers: list[str]
+    clearance_path: ClearancePath = ClearancePath.DIRECT_PA
+
+
+class BulkShipmentResultItem(BaseModel):
+    bl_number: str
+    outcome: Literal["created", "skipped_duplicate", "invalid"]
+    shipment_id: Optional[UUID] = None
+    reference: Optional[str] = None
+    carrier_name: Optional[str] = None      # detected carrier (None if not recognised)
+    carrier_matched: bool = False           # True if we linked it to a carrier record
+
+
+class BulkShipmentResult(BaseModel):
+    created: int
+    skipped: int
+    invalid: int
+    items: list[BulkShipmentResultItem]
 
 
 class ShipmentBook(BaseModel):

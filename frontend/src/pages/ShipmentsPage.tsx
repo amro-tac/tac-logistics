@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/shipments";
 import { AppHeader } from "../components/AppHeader";
 import { ShipmentCard } from "../components/ShipmentCard";
+import { BulkAddModal } from "../components/BulkAddModal";
 import { useLanguage } from "../lib/LanguageContext";
 import { isDemoMode } from "../lib/auth";
 import type { ShipmentListItem, ShipmentStatus } from "../types/shipment";
@@ -100,6 +101,7 @@ export function ShipmentsPage() {
   const [selectMode, setSelectMode]     = useState(false);
   const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set());
   const [advancing, setAdvancing]       = useState(false);
+  const [bulkOpen, setBulkOpen]         = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
 
@@ -241,12 +243,21 @@ export function ShipmentsPage() {
             >
               {selectMode ? "✕ Cancel" : "Select"}
             </button>
+            {!demo && (
+              <button onClick={() => setBulkOpen(true)} className="btn-header text-xs font-medium px-3 py-1.5 rounded-lg">
+                + Bulk B/Ls
+              </button>
+            )}
             <button onClick={handleCreate} disabled={creating} className="btn-primary text-xs px-4 py-2">
               {creating ? t.creating : t.newShipment}
             </button>
           </>
         }
       />
+
+      {bulkOpen && (
+        <BulkAddModal onClose={() => setBulkOpen(false)} onDone={loadShipments} />
+      )}
 
       {demo && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-700">
