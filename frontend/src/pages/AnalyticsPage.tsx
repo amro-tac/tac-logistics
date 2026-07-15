@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/shipments";
 import { isDemoMode } from "../lib/auth";
 import { AppHeader } from "../components/AppHeader";
+import { CostSummaryCard } from "../components/CostSummaryCard";
 import { useLanguage } from "../lib/LanguageContext";
 import { exportShipmentsExcel } from "../lib/export";
 import type { ShipmentListItem, ShipmentStatus, RiskFlag } from "../types/shipment";
@@ -357,6 +358,8 @@ export function AnalyticsPage() {
       />
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+        <CostSummaryCard />
 
         {/* Date range filter */}
         <div className="flex items-center justify-between flex-wrap gap-3">

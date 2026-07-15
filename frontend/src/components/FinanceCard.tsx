@@ -15,6 +15,13 @@ const EMPTY: ShipmentFinance = {
   paid_usd: 0,
   balance_usd: null,
   payment_status: "unpaid",
+  ocean_freight_usd: null,
+  local_charges_usd: null,
+  customs_duty_usd: null,
+  demurrage_usd: null,
+  other_costs_usd: null,
+  import_costs_usd: 0,
+  landed_cost_usd: null,
   payments: [],
   items: [],
 };
@@ -29,6 +36,13 @@ const DEMO_FINANCE: ShipmentFinance = {
   paid_usd: 41081.7,
   balance_usd: 95857.3,
   payment_status: "partial",
+  ocean_freight_usd: 5800,
+  local_charges_usd: 950,
+  customs_duty_usd: 16400,
+  demurrage_usd: null,
+  other_costs_usd: null,
+  import_costs_usd: 23150,
+  landed_cost_usd: 160089,
   payments: [
     { id: "dp1", amount_usd: 41081.7, kind: "downpayment", method: "TT", reference: "SWIFT-4471", note: null, paid_at: new Date(Date.now() - 12 * 86400000).toISOString() },
   ],
@@ -64,6 +78,8 @@ export function FinanceCard({ shipmentId, demo }: Props) {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ order_number: "", total_value_usd: "", payment_terms: "", downpayment_pct: "", shipment_window: "" });
+  const [editingCosts, setEditingCosts] = useState(false);
+  const [costDraft, setCostDraft] = useState({ ocean_freight_usd: "", local_charges_usd: "", customs_duty_usd: "", demurrage_usd: "", other_costs_usd: "" });
 
   const [payAmount, setPayAmount] = useState("");
   const [payKind, setPayKind] = useState<PaymentItem["kind"]>("other");
@@ -89,13 +105,51 @@ export function FinanceCard({ shipmentId, demo }: Props) {
     setEditing(true);
   }
 
-  // Recompute paid/balance/status locally (demo mode only)
+  // Recompute paid/balance/status + import/landed cost locally (demo mode only)
   function recompute(f: ShipmentFinance): ShipmentFinance {
     const paid = Math.round(f.payments.reduce((s, p) => s + p.amount_usd, 0) * 100) / 100;
     const total = f.total_value_usd;
     const balance = total != null ? Math.round((total - paid) * 100) / 100 : null;
     const payment_status = paid <= 0 ? "unpaid" : total != null && paid >= total - 0.005 ? "paid" : "partial";
-    return { ...f, paid_usd: paid, balance_usd: balance, payment_status };
+    const costVals = [f.ocean_freight_usd, f.local_charges_usd, f.customs_duty_usd, f.demurrage_usd, f.other_costs_usd];
+    const importCosts = Math.round(costVals.reduce((s: number, v) => s + (v ?? 0), 0) * 100) / 100;
+    const hasCosts = costVals.some(v => v != null);
+    const landed = total != null || hasCosts ? Math.round(((total ?? 0) + importCosts) * 100) / 100 : null;
+    return { ...f, paid_usd: paid, balance_usd: balance, payment_status, import_costs_usd: importCosts, landed_cost_usd: landed };
+  }
+
+  function openCostEdit() {
+    const s = (v: number | null) => (v != null ? String(v) : "");
+    setCostDraft({
+      ocean_freight_usd: s(fin.ocean_freight_usd),
+      local_charges_usd: s(fin.local_charges_usd),
+      customs_duty_usd: s(fin.customs_duty_usd),
+      demurrage_usd: s(fin.demurrage_usd),
+      other_costs_usd: s(fin.other_costs_usd),
+    });
+    setEditingCosts(true);
+  }
+
+  async function saveCosts() {
+    const p = (v: string) => (v.trim() === "" ? null : parseFloat(v));
+    const body = {
+      ocean_freight_usd: p(costDraft.ocean_freight_usd),
+      local_charges_usd: p(costDraft.local_charges_usd),
+      customs_duty_usd: p(costDraft.customs_duty_usd),
+      demurrage_usd: p(costDraft.demurrage_usd),
+      other_costs_usd: p(costDraft.other_costs_usd),
+    };
+    if (demo) { setFin(f => recompute({ ...f, ...body })); setEditingCosts(false); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      setFin(await api.updateFinance(shipmentId, body));
+      setEditingCosts(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveHeader() {
@@ -436,6 +490,65 @@ export function FinanceCard({ shipmentId, demo }: Props) {
                   <button onClick={addItem} disabled={busy || !itemDraft.description.trim()} className="btn-primary text-xs">+ Add</button>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Landed cost — cargo value + shipping / import costs */}
+          <div className="mt-4 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Landed cost</h3>
+              {!editingCosts && (
+                <button onClick={openCostEdit} className="text-xs text-slate-400 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors">
+                  {fin.import_costs_usd > 0 ? "Edit costs" : "+ Add shipping costs"}
+                </button>
+              )}
+            </div>
+
+            {editingCosts ? (
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ["ocean_freight_usd", "Ocean freight"],
+                  ["local_charges_usd", "Local charges (THC…)"],
+                  ["customs_duty_usd", "Customs & duty"],
+                  ["demurrage_usd", "Demurrage"],
+                  ["other_costs_usd", "Other"],
+                ] as [keyof typeof costDraft, string][]).map(([key, label]) => (
+                  <div key={key}>
+                    <label className="block text-xs text-slate-500 mb-1">{label}</label>
+                    <input type="number" min="0" step="0.01" value={costDraft[key]}
+                      onChange={e => setCostDraft(d => ({ ...d, [key]: e.target.value }))}
+                      placeholder="0.00" className={`w-full ${inputCls}`} />
+                  </div>
+                ))}
+                <div className="col-span-2 flex gap-2 justify-end">
+                  <button onClick={() => setEditingCosts(false)} className="text-xs text-slate-400 hover:text-slate-600 px-3 py-2">Cancel</button>
+                  <button onClick={saveCosts} disabled={busy} className="btn-primary text-xs">Save costs</button>
+                </div>
+              </div>
+            ) : fin.landed_cost_usd != null ? (
+              <>
+                <div className="flex items-end justify-between mb-2">
+                  <div>
+                    <p className="text-xs text-slate-400">Cargo value</p>
+                    <p className="text-sm font-semibold text-slate-600">{usd(fin.total_value_usd ?? 0)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-slate-400">+ Import costs</p>
+                    <p className="text-sm font-semibold text-slate-600">{usd(fin.import_costs_usd)}</p>
+                  </div>
+                  <div className="text-end">
+                    <p className="text-xs text-slate-400">Landed cost</p>
+                    <p className="text-lg font-bold text-slate-800">{usd(fin.landed_cost_usd)}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                  {([["Freight", fin.ocean_freight_usd], ["Local", fin.local_charges_usd], ["Customs", fin.customs_duty_usd], ["Demurrage", fin.demurrage_usd], ["Other", fin.other_costs_usd]] as [string, number | null][])
+                    .filter(([, v]) => v != null && v > 0)
+                    .map(([label, v]) => <span key={label}>{label} <span className="font-medium text-slate-700">{usd(v!)}</span></span>)}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-slate-400">Add ocean freight, customs, and other costs to see this shipment's landed cost.</p>
             )}
           </div>
         </>

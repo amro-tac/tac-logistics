@@ -89,8 +89,29 @@ export interface ShipmentFinance {
   paid_usd: number;
   balance_usd: number | null;
   payment_status: "unpaid" | "partial" | "paid";
+  // Import / shipping costs → landed cost
+  ocean_freight_usd: number | null;
+  local_charges_usd: number | null;
+  customs_duty_usd: number | null;
+  demurrage_usd: number | null;
+  other_costs_usd: number | null;
+  import_costs_usd: number;
+  landed_cost_usd: number | null;
   payments: PaymentItem[];
   items: OrderLineItem[];
+}
+
+export interface CostSummary {
+  cargo_value_usd: number;
+  ocean_freight_usd: number;
+  local_charges_usd: number;
+  customs_duty_usd: number;
+  demurrage_usd: number;
+  other_costs_usd: number;
+  carrier_fees_usd: number;
+  import_costs_usd: number;
+  landed_cost_usd: number;
+  shipments_with_costs: number;
 }
 
 export interface CommoditySearchResult {
@@ -208,9 +229,16 @@ export const api = {
     payment_terms?: string | null;
     downpayment_pct?: number | null;
     shipment_window?: string | null;
+    ocean_freight_usd?: number | null;
+    local_charges_usd?: number | null;
+    customs_duty_usd?: number | null;
+    demurrage_usd?: number | null;
+    other_costs_usd?: number | null;
   }) => request<ShipmentFinance>(`/shipments/${shipmentId}/finance`, {
     method: "PUT", body: JSON.stringify(body),
   }),
+
+  getCostSummary: () => request<CostSummary>("/shipments/reports/cost-summary"),
 
   addPayment: (shipmentId: string, body: {
     amount_usd: number;
