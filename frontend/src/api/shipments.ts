@@ -144,7 +144,24 @@ export interface BulkResult {
   items: BulkResultItem[];
 }
 
+export interface GlobalAlert {
+  shipment_id: string;
+  reference: string;
+  bl_number: string | null;
+  kind: "demurrage_overdue" | "demurrage_risk" | "checklist_overdue" | "arriving_soon" | "eta_changed";
+  level: "critical" | "warning";
+  message: string;
+}
+
+export interface GlobalAlerts {
+  critical: number;
+  warning: number;
+  alerts: GlobalAlert[];
+}
+
 export const api = {
+  getAlerts: () => request<GlobalAlerts>("/alerts"),
+
   bulkCreateShipments: (bl_numbers: string[], clearance_path: "direct_pa" | "israeli_only") =>
     request<BulkResult>("/shipments/bulk", {
       method: "POST",

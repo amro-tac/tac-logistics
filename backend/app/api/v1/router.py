@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from app.api.v1.alerts import router as alerts_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.carriers import router as carriers_router
 from app.api.v1.checklist_state import router as checklist_router
@@ -13,6 +14,7 @@ from app.api.v1.vessels import router as vessels_router
 from app.api.v1.webhooks import router as webhooks_router
 
 router = APIRouter()
+router.include_router(alerts_router)
 router.include_router(auth_router)
 router.include_router(carriers_router)
 router.include_router(checklist_router)

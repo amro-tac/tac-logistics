@@ -4,6 +4,7 @@ import { api } from "../api/shipments";
 import { AppHeader } from "../components/AppHeader";
 import { ShipmentCard } from "../components/ShipmentCard";
 import { BulkAddModal } from "../components/BulkAddModal";
+import { GlobalAlertsBanner } from "../components/GlobalAlertsBanner";
 import { useLanguage } from "../lib/LanguageContext";
 import { isDemoMode } from "../lib/auth";
 import type { ShipmentListItem, ShipmentStatus } from "../types/shipment";
@@ -277,6 +278,8 @@ export function ShipmentsPage() {
           </div>
         ) : (
           <>
+            <GlobalAlertsBanner />
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               {[
                 { label: t.active,    value: shipments.filter(s => !["closed","received"].includes(s.status)).length, color: "text-slate-800", dot: "bg-blue-500" },
