@@ -299,6 +299,13 @@ export const api = {
 
   triggerEmailScan: () => request<{ queued: boolean; reason?: string }>("/email-scanner/scan-now", { method: "POST" }),
 
+  // ── Alert digest ─────────────────────────────────────────────────────────────
+  getDigestStatus: () =>
+    request<{ configured: boolean; digest_hour: number; recipient: string | null }>("/alerts/digest/status"),
+
+  sendDigestNow: () =>
+    request<{ sent: boolean; to: string; alerts: number }>("/alerts/digest/send-now", { method: "POST" }),
+
   // ── User profile ─────────────────────────────────────────────────────────────
   getMe: () => request<UserProfile>("/auth/me"),
 

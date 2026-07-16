@@ -203,6 +203,8 @@ export function SettingsPage() {
           </div>
         </div>
 
+        <DigestCard demo={demo} />
+
         {/* Supported carriers */}
         <div className="card px-5 py-4">
           <h2 className="text-sm font-bold text-slate-800 mb-3">Supported Carriers</h2>
@@ -231,6 +233,79 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
     <div>
       <div className="text-xs text-slate-400 mb-0.5">{label}</div>
       <div className={`text-sm font-medium ${accent ? "text-green-600" : "text-slate-700"}`}>{value}</div>
+    </div>
+  );
+}
+
+function DigestCard({ demo }: { demo: boolean }) {
+  const [status, setStatus] = useState<{ configured: boolean; digest_hour: number; recipient: string | null } | null>(
+    demo ? { configured: false, digest_hour: 7, recipient: null } : null
+  );
+  const [sending, setSending] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    if (demo) return;
+    api.getDigestStatus().then(setStatus).catch(() => {});
+  }, [demo]);
+
+  async function sendTest() {
+    setSending(true);
+    setMsg("");
+    try {
+      const res = await api.sendDigestNow();
+      setMsg(`Sent to ${res.to} (${res.alerts} alert${res.alerts !== 1 ? "s" : ""}).`);
+    } catch (e: any) {
+      setMsg(e.message ?? "Send failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (!status) return null;
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-slate-800">Daily Alert Digest</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Emails your active alerts (demurrage, overdue items, ETA changes) every morning
+          </p>
+        </div>
+        <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+          status.configured
+            ? "bg-green-50 text-green-700 border border-green-200"
+            : "bg-amber-50 text-amber-700 border border-amber-200"
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${status.configured ? "bg-green-500" : "bg-amber-400"}`} />
+          {status.configured ? "Active" : "Not configured"}
+        </div>
+      </div>
+
+      <div className="px-5 py-4 space-y-3">
+        {status.configured ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Stat label="Sends daily at" value={`${String(status.digest_hour).padStart(2, "0")}:00`} />
+              <Stat label="Your recipient email" value={status.recipient ?? "Not set — add it on a shipment's Alerts panel"} />
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={sendTest} disabled={sending || !status.recipient} className="btn-primary text-xs">
+                {sending ? "Sending…" : "Send test digest"}
+              </button>
+              {msg && <span className="text-xs text-slate-500">{msg}</span>}
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Add <code className="bg-slate-100 text-slate-700 rounded px-1 py-0.5">SMTP_HOST=smtp.gmail.com</code> to
+            the backend <code className="bg-slate-100 text-slate-700 rounded px-1 py-0.5">.env</code> (Gmail reuses the
+            email-scanner app password) and restart. Each user then gets a morning email of the alerts you see on the
+            shipments page.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

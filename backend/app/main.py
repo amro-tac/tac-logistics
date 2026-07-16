@@ -14,17 +14,23 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Start email scanner background loop (no-op if EMAIL_ADDRESS not set)
+    # Background loops — each is a no-op if its config is missing
     from app.email_scanner import start_email_scanner_loop
-    scanner_task = asyncio.create_task(start_email_scanner_loop())
+    from app.digest import start_digest_loop
+    tasks = [
+        asyncio.create_task(start_email_scanner_loop()),
+        asyncio.create_task(start_digest_loop()),
+    ]
 
     yield
 
-    scanner_task.cancel()
-    try:
-        await scanner_task
-    except asyncio.CancelledError:
-        pass
+    for task in tasks:
+        task.cancel()
+    for task in tasks:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="TAC Logistics API", version="1.0.0", lifespan=lifespan)

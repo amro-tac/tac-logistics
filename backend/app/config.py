@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     EMAIL_PASSWORD: str = ""      # app password (Gmail: 16-char app password)
     EMAIL_SCAN_INTERVAL_MINUTES: int = 30
 
+    # Alert digest — daily email of active alerts. Gmail users can reuse the
+    # scanner credentials: SMTP_HOST=smtp.gmail.com, same address/app password.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""       # falls back to EMAIL_ADDRESS if empty
+    SMTP_PASSWORD: str = ""       # falls back to EMAIL_PASSWORD if empty
+    SMTP_STARTTLS: bool = True
+    DIGEST_HOUR: int = 7          # local server hour to send the daily digest
+
     class Config:
         env_file = ".env"
 
