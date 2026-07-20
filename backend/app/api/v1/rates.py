@@ -31,14 +31,21 @@ CONTAINER_TYPES = ("20GP", "40GP", "40HQ", "reefer")
 # Seed lanes to Haifa: (origin, 40GP low, 40GP high, transit min, transit max).
 # Editable estimates based on typical market bands — NOT live rates.
 SEED_LANES = [
-    ("Shanghai / Ningbo, China",   2200, 3800, 28, 38),
-    ("Singapore / SE Asia",        2400, 4000, 30, 40),
-    ("Nhava Sheva, India",         1500, 2600, 18, 26),
-    ("Istanbul / Mersin, Turkey",   700, 1400,  5, 10),
-    ("Rotterdam / North Europe",   1400, 2400, 14, 20),
-    ("Valencia / West Med",         900, 1700,  8, 14),
-    ("Santos, Brazil",             2800, 4600, 30, 42),
-    ("New York / US East Coast",   1800, 3200, 22, 30),
+    ("Shanghai / Ningbo, China",        2200, 3800, 28, 38),
+    ("Busan, South Korea",              2300, 3900, 30, 40),
+    ("Singapore / SE Asia",             2400, 4000, 30, 40),
+    ("Nhava Sheva, India",              1500, 2600, 18, 26),
+    ("Istanbul / Mersin, Turkey",        700, 1400,  5, 10),
+    ("Varna / Burgas, Bulgaria",        1000, 1900, 10, 18),
+    ("Rotterdam / North Europe",        1400, 2400, 14, 20),
+    ("Valencia / West Med",              900, 1700,  8, 14),
+    ("Barcelona / Algeciras, Spain",     900, 1700,  8, 14),
+    ("Lisbon / Sines, Portugal",        1100, 1900, 10, 16),
+    # Hungary is landlocked — priced via Koper (rail/truck leg included)
+    ("Budapest, Hungary (via Koper)",   1900, 3200, 14, 22),
+    ("Santos, Brazil",                  2800, 4600, 30, 42),
+    ("Buenos Aires, Argentina",         3000, 5000, 32, 45),
+    ("New York / US East Coast",        1800, 3200, 22, 30),
 ]
 
 # Multipliers applied to the 40GP band when seeding other container types
@@ -90,15 +97,21 @@ def _quote_out(q: FreightQuote) -> dict:
 
 
 async def _rates_for_tenant(tenant_id: uuid.UUID, db: AsyncSession) -> list[FreightRate]:
-    rates = (await db.execute(
-        select(FreightRate).where(FreightRate.tenant_id == tenant_id)
-    )).scalars().all()
-    if rates:
-        return list(rates)
+    """Return the tenant's benchmark rates, seeding any missing seed lanes.
 
-    # First use — seed the benchmark table for this tenant
+    Additive: when new lanes are added to SEED_LANES, existing tenants get
+    them on their next visit without touching rows they may have edited.
+    """
+    rates = list((await db.execute(
+        select(FreightRate).where(FreightRate.tenant_id == tenant_id)
+    )).scalars().all())
+
+    existing = {(r.origin, r.container_type) for r in rates}
+    added = False
     for origin, low, high, tmin, tmax in SEED_LANES:
         for ctype in CONTAINER_TYPES:
+            if (origin, ctype) in existing:
+                continue
             f = TYPE_FACTOR[ctype]
             db.add(FreightRate(
                 tenant_id=tenant_id,
@@ -110,10 +123,14 @@ async def _rates_for_tenant(tenant_id: uuid.UUID, db: AsyncSession) -> list[Frei
                 transit_days_min=tmin,
                 transit_days_max=tmax,
             ))
-    await db.commit()
-    return list((await db.execute(
-        select(FreightRate).where(FreightRate.tenant_id == tenant_id)
-    )).scalars().all())
+            added = True
+
+    if added:
+        await db.commit()
+        rates = list((await db.execute(
+            select(FreightRate).where(FreightRate.tenant_id == tenant_id)
+        )).scalars().all())
+    return rates
 
 
 @router.get("")
