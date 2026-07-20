@@ -7,6 +7,7 @@ from app.api.v1.documents import router as documents_router
 from app.api.v1.email_scanner import router as email_scanner_router
 from app.api.v1.finance import router as finance_router
 from app.api.v1.notes import router as notes_router
+from app.api.v1.rates import router as rates_router
 from app.api.v1.shipments import router as shipments_router
 from app.api.v1.suppliers import router as suppliers_router
 from app.api.v1.tracking import router as tracking_router
@@ -22,6 +23,7 @@ router.include_router(documents_router)
 router.include_router(email_scanner_router)
 router.include_router(finance_router)
 router.include_router(notes_router)
+router.include_router(rates_router)
 router.include_router(shipments_router)
 router.include_router(suppliers_router)
 router.include_router(tracking_router)

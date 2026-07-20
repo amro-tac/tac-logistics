@@ -159,7 +159,60 @@ export interface GlobalAlerts {
   alerts: GlobalAlert[];
 }
 
+export interface FreightRateRow {
+  id: string;
+  origin: string;
+  destination: string;
+  container_type: "20GP" | "40GP" | "40HQ" | "reefer";
+  rate_low_usd: number;
+  rate_high_usd: number;
+  transit_days_min: number | null;
+  transit_days_max: number | null;
+}
+
+export interface FreightQuoteRow {
+  id: string;
+  origin: string;
+  container_type: string;
+  provider: string;
+  price_usd: number;
+  valid_until: string | null;
+  expired: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface FreightEstimate {
+  origin: string;
+  destination: string;
+  container_type: string;
+  benchmark: FreightRateRow | null;
+  options: FreightRateRow[];
+  quotes: FreightQuoteRow[];
+  paid_history: { reference: string; port_of_loading: string; ocean_freight_usd: number }[];
+}
+
 export const api = {
+  // ── Freight rates ────────────────────────────────────────────────────────────
+  getRates: () => request<FreightRateRow[]>("/rates"),
+
+  updateRate: (id: string, body: {
+    rate_low_usd: number; rate_high_usd: number;
+    transit_days_min?: number | null; transit_days_max?: number | null;
+  }) => request<FreightRateRow>(`/rates/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  getEstimate: (origin: string, containerType: string) =>
+    request<FreightEstimate>(`/rates/estimate?origin=${encodeURIComponent(origin)}&container_type=${encodeURIComponent(containerType)}`),
+
+  getQuotes: () => request<FreightQuoteRow[]>("/rates/quotes"),
+
+  addQuote: (body: {
+    origin: string; container_type: string; provider: string;
+    price_usd: number; valid_until?: string | null; notes?: string | null;
+  }) => request<FreightQuoteRow>("/rates/quotes", { method: "POST", body: JSON.stringify(body) }),
+
+  deleteQuote: (id: string) => request<{ deleted: boolean }>(`/rates/quotes/${id}`, { method: "DELETE" }),
+
   getAlerts: () => request<GlobalAlerts>("/alerts"),
 
   bulkCreateShipments: (bl_numbers: string[], clearance_path: "direct_pa" | "israeli_only") =>

@@ -21,6 +21,7 @@ export function AppHeader({ actions, stats }: AppHeaderProps) {
     { to: "/analytics", label: t.analyticsNav },
     { to: "/suppliers", label: t.suppliersNav },
     { to: "/search",    label: t.cargoNav },
+    { to: "/rates",     label: t.ratesNav },
     { to: "/settings",  label: t.settingsNav },
   ];
 

@@ -11,6 +11,7 @@ const SuppliersPage = lazy(() => import("./pages/SuppliersPage").then(m => ({ de
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage").then(m => ({ default: m.AnalyticsPage })));
 const CommoditySearchPage = lazy(() => import("./pages/CommoditySearchPage").then(m => ({ default: m.CommoditySearchPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then(m => ({ default: m.SettingsPage })));
+const RatesPage = lazy(() => import("./pages/RatesPage").then(m => ({ default: m.RatesPage })));
 
 function PageFallback() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
             <Route path="/search" element={<ProtectedRoute><CommoditySearchPage /></ProtectedRoute>} />
+            <Route path="/rates" element={<ProtectedRoute><RatesPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

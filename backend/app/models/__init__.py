@@ -10,8 +10,11 @@ from app.models.document import ShipmentDocument
 from app.models.checklist import ChecklistItem
 from app.models.email_log import EmailScanLog, ProcessedEmail
 from app.models.finance import ShipmentFinance, ShipmentPayment, ShipmentOrderItem, PaymentKind
+from app.models.rates import FreightRate, FreightQuote
 
 __all__ = [
+    "FreightRate",
+    "FreightQuote",
     "Base",
     "Tenant",
     "User",
