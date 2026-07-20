@@ -5,6 +5,7 @@ import { isDemoMode } from "../lib/auth";
 import type { CarrierOption } from "../api/shipments";
 import type { Shipment } from "../types/shipment";
 import { PortInput } from "./PortInput";
+import { matchCategory, CATEGORY_LABEL, CARGO_CATEGORY_DEFS } from "../lib/cargoCategories";
 
 const DEMO_CARRIERS: CarrierOption[] = [
   { id: "uuid-zim",   name: "ZIM",         scac: "ZIMU", default_free_days: 5 },
@@ -34,10 +35,17 @@ export function BookShipmentForm({ shipment, onBooked }: Props) {
   const { t } = useLanguage();
   const [carriers, setCarriers] = useState<CarrierOption[]>(isDemoMode() ? DEMO_CARRIERS : []);
   const [carrierId, setCarrierId] = useState("");
+  const [carrierManual, setCarrierManual] = useState(false);
+  const [prefs, setPrefs] = useState<Record<string, { carrierId: string; carrierName: string }>>({});
 
   useEffect(() => {
     if (isDemoMode()) return;
     api.listCarriers().then(setCarriers).catch(() => setCarriers(DEMO_CARRIERS));
+    api.getCarrierPreferences()
+      .then(ps => setPrefs(Object.fromEntries(
+        ps.map(p => [p.category, { carrierId: p.carrier_id, carrierName: p.carrier_name ?? "" }])
+      )))
+      .catch(() => {});
   }, []);
   const [blNumber, setBlNumber]   = useState("");
   const [vesselName, setVesselName] = useState("");
@@ -55,6 +63,19 @@ export function BookShipmentForm({ shipment, onBooked }: Props) {
   ]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // ── Carrier preference: match typed commodities to a cargo category ─────────
+  const matchedCategory = containers.map(c => matchCategory(c.commodity)).find(Boolean) ?? null;
+  const pref = matchedCategory ? prefs[matchedCategory] : undefined;
+  const prefApplied = !!pref && carrierId === pref.carrierId;
+
+  useEffect(() => {
+    // Auto-select the preferred carrier unless the user picked one themselves
+    if (pref && !carrierManual && carrierId !== pref.carrierId) {
+      setCarrierId(pref.carrierId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pref?.carrierId, carrierManual]);
 
   function addContainer() {
     setContainers(c => [...c, { key: Date.now(), container_number: "", container_type: "40HQ", cbm: "", commodity: "" }]);
@@ -167,12 +188,24 @@ export function BookShipmentForm({ shipment, onBooked }: Props) {
             />
           </Field>
           <Field label={t.carrierLabel} required>
-            <select value={carrierId} onChange={e => setCarrierId(e.target.value)} className={inputCls}>
+            <select
+              value={carrierId}
+              onChange={e => { setCarrierId(e.target.value); setCarrierManual(true); }}
+              className={inputCls}
+            >
               <option value="">{t.selectCarrier}</option>
               {carriers.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            {pref && matchedCategory && (
+              <p className={`text-[11px] mt-1 ${prefApplied ? "text-green-600" : "text-slate-400"}`}>
+                {CARGO_CATEGORY_DEFS.find(d => d.id === matchedCategory)?.icon}{" "}
+                {prefApplied
+                  ? `${pref.carrierName} applied — your preferred carrier for ${(CATEGORY_LABEL[matchedCategory] ?? matchedCategory).toLowerCase()}`
+                  : `You usually ship ${(CATEGORY_LABEL[matchedCategory] ?? matchedCategory).toLowerCase()} with ${pref.carrierName}`}
+              </p>
+            )}
           </Field>
         </div>
 

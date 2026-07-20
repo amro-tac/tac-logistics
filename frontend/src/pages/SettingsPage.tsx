@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/shipments";
 import { AppHeader } from "../components/AppHeader";
 import { isDemoMode } from "../lib/auth";
+import { CARGO_CATEGORY_DEFS, CATEGORY_LABEL } from "../lib/cargoCategories";
 
 type ScanLog = { scanned_at: string; emails_checked: number; updates_made: number; error: string | null };
 
@@ -205,6 +206,8 @@ export function SettingsPage() {
 
         <DigestCard demo={demo} />
 
+        <CarrierPrefsCard demo={demo} />
+
         {/* Supported carriers */}
         <div className="card px-5 py-4">
           <h2 className="text-sm font-bold text-slate-800 mb-3">Supported Carriers</h2>
@@ -233,6 +236,78 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
     <div>
       <div className="text-xs text-slate-400 mb-0.5">{label}</div>
       <div className={`text-sm font-medium ${accent ? "text-green-600" : "text-slate-700"}`}>{value}</div>
+    </div>
+  );
+}
+
+function CarrierPrefsCard({ demo }: { demo: boolean }) {
+  const [carriers, setCarriers] = useState<{ id: string; name: string }[]>([]);
+  const [prefs, setPrefs] = useState<Record<string, string>>({}); // category → carrier_id
+  const [loaded, setLoaded] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    if (demo) { setLoaded(true); return; }
+    Promise.all([api.listCarriers(), api.getCarrierPreferences()])
+      .then(([cs, ps]) => {
+        setCarriers(cs.map(c => ({ id: c.id, name: c.name })));
+        setPrefs(Object.fromEntries(ps.map(p => [p.category, p.carrier_id])));
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [demo]);
+
+  async function change(category: string, carrierId: string) {
+    setMsg("");
+    const prev = prefs;
+    setPrefs(p => {
+      const next = { ...p };
+      if (carrierId) next[category] = carrierId; else delete next[category];
+      return next;
+    });
+    try {
+      if (carrierId) await api.setCarrierPreference(category, carrierId);
+      else await api.deleteCarrierPreference(category);
+      setMsg("Saved.");
+    } catch (e: any) {
+      setPrefs(prev); // roll back on failure
+      setMsg(e.message ?? "Save failed");
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h2 className="text-sm font-bold text-slate-800">Carrier Preferences</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Preferred shipping line per cargo type — the booking form pre-selects it when the commodity matches
+        </p>
+      </div>
+      <div className="px-5 py-4">
+        {demo ? (
+          <p className="text-xs text-slate-400">Sign in to set carrier preferences.</p>
+        ) : (
+          <div className="space-y-2">
+            {[...CARGO_CATEGORY_DEFS, { id: "other", icon: "🔧", keywords: [] }].map(def => (
+              <div key={def.id} className="flex items-center gap-3">
+                <span className="text-base w-6 text-center">{def.icon}</span>
+                <span className="text-xs text-slate-600 flex-1">{CATEGORY_LABEL[def.id] ?? def.id}</span>
+                <select
+                  value={prefs[def.id] ?? ""}
+                  onChange={e => change(def.id, e.target.value)}
+                  className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-red-400 bg-white w-44"
+                >
+                  <option value="">No preference</option>
+                  {carriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            ))}
+            {msg && <p className="text-[11px] text-slate-400 pt-1">{msg}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

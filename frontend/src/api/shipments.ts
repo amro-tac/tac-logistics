@@ -192,7 +192,26 @@ export interface FreightEstimate {
   paid_history: { reference: string; port_of_loading: string; ocean_freight_usd: number }[];
 }
 
+export interface CarrierPreferenceRow {
+  category: string;
+  carrier_id: string;
+  carrier_name: string | null;
+  note: string | null;
+}
+
 export const api = {
+  // ── Carrier preferences (per cargo category) ─────────────────────────────────
+  getCarrierPreferences: () => request<CarrierPreferenceRow[]>("/carrier-preferences"),
+
+  setCarrierPreference: (category: string, carrierId: string, note?: string | null) =>
+    request<CarrierPreferenceRow>(`/carrier-preferences/${category}`, {
+      method: "PUT",
+      body: JSON.stringify({ carrier_id: carrierId, note: note ?? null }),
+    }),
+
+  deleteCarrierPreference: (category: string) =>
+    request<{ deleted: boolean }>(`/carrier-preferences/${category}`, { method: "DELETE" }),
+
   // ── Freight rates ────────────────────────────────────────────────────────────
   getRates: () => request<FreightRateRow[]>("/rates"),
 

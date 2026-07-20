@@ -5,6 +5,7 @@ import { AppHeader } from "../components/AppHeader";
 import { ShipmentCard } from "../components/ShipmentCard";
 import { BulkAddModal } from "../components/BulkAddModal";
 import { GlobalAlertsBanner } from "../components/GlobalAlertsBanner";
+import { CARGO_CATEGORY_DEFS } from "../lib/cargoCategories";
 import { useLanguage } from "../lib/LanguageContext";
 import { isDemoMode } from "../lib/auth";
 import type { ShipmentListItem, ShipmentStatus } from "../types/shipment";
@@ -185,16 +186,15 @@ export function ShipmentsPage() {
     finally { setAdvancing(false); exitSelectMode(); }
   }
 
-  // ── Cargo categories ──────────────────────────────────────────────────────────
+  // ── Cargo categories (keywords shared with carrier preferences) ───────────────
+  const CATEGORY_T_LABEL: Record<string, string> = {
+    frozen_fish: t.catFrozenFish, meat: t.catMeat, furniture: t.catFurniture,
+    home_products: t.catHomeProducts, textiles: t.catTextiles, produce: t.catProduce,
+  };
   const CARGO_CATEGORIES: { id: string; label: string; icon: string; keywords: string[] }[] = [
-    { id: "all",           label: t.catAll,          icon: "📦", keywords: [] },
-    { id: "frozen_fish",   label: t.catFrozenFish,   icon: "🐟", keywords: ["fish", "frozen fish", "seafood", "salmon", "tuna", "tilapia", "shrimp", "prawn", "cod", "okf", "pelagic"] },
-    { id: "meat",          label: t.catMeat,         icon: "🥩", keywords: ["meat", "beef", "chicken", "poultry", "lamb", "veal", "mutton", "turkey", "pork", "offal"] },
-    { id: "furniture",     label: t.catFurniture,    icon: "🪑", keywords: ["furniture", "sofa", "chair", "table", "bed", "wardrobe", "mattress", "desk", "cabinet", "shelf"] },
-    { id: "home_products", label: t.catHomeProducts, icon: "🏠", keywords: ["home", "household", "appliance", "electronics", "kitchen", "consumer", "device", "utensil"] },
-    { id: "textiles",      label: t.catTextiles,     icon: "👕", keywords: ["textile", "fabric", "clothing", "garment", "apparel", "cotton", "wool", "fashion", "wear"] },
-    { id: "produce",       label: t.catProduce,      icon: "🥦", keywords: ["produce", "vegetable", "fruit", "fresh", "organic", "agricultural"] },
-    { id: "other",         label: t.catOther,        icon: "🔧", keywords: [] },
+    { id: "all", label: t.catAll, icon: "📦", keywords: [] },
+    ...CARGO_CATEGORY_DEFS.map(d => ({ ...d, label: CATEGORY_T_LABEL[d.id] ?? d.id, keywords: [...d.keywords] })),
+    { id: "other", label: t.catOther, icon: "🔧", keywords: [] },
   ];
 
   function shipmentCommodities(s: ShipmentListItem): string[] {
