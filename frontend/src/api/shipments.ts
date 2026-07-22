@@ -148,7 +148,7 @@ export interface GlobalAlert {
   shipment_id: string;
   reference: string;
   bl_number: string | null;
-  kind: "demurrage_overdue" | "demurrage_risk" | "checklist_overdue" | "arriving_soon" | "eta_changed";
+  kind: "demurrage_overdue" | "demurrage_risk" | "checklist_overdue" | "arriving_soon" | "eta_changed" | "missing_docs";
   level: "critical" | "warning";
   message: string;
 }
@@ -190,6 +190,21 @@ export interface FreightEstimate {
   options: FreightRateRow[];
   quotes: FreightQuoteRow[];
   paid_history: { reference: string; port_of_loading: string; ocean_freight_usd: number }[];
+}
+
+export interface DocChecklistItem {
+  category: string;
+  uploaded: boolean;
+  uploaded_count: number;
+  waived: boolean;
+}
+
+export interface DocChecklist {
+  items: DocChecklistItem[];
+  required: number;
+  present: number;
+  waived: number;
+  missing: string[];
 }
 
 export interface CarrierPreferenceRow {

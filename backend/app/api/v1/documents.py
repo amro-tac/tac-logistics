@@ -6,13 +6,16 @@ import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_tenant_id
+from app.doc_requirements import DOC_CATEGORIES, categories_for, required_categories
 from app.models.shipment import Shipment
-from app.models.document import ShipmentDocument
+from app.models.document import ShipmentDocument, DocumentWaiver
 from app.models.user import User
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -32,6 +35,121 @@ async def _get_shipment(shipment_id: str, tenant_id: uuid.UUID, db: AsyncSession
     if not shipment:
         raise HTTPException(status_code=404, detail="Shipment not found")
     return shipment
+
+
+class WaiveIn(BaseModel):
+    note: str | None = None
+
+
+async def _build_checklist(shipment: Shipment, tenant_id: uuid.UUID, db: AsyncSession) -> dict:
+    commodities = [c.commodity for c in shipment.containers]
+    cats = categories_for(commodities)
+    required = required_categories(shipment.clearance_path.value, cats)
+
+    docs = (await db.execute(
+        select(ShipmentDocument.category).where(ShipmentDocument.shipment_id == shipment.id)
+    )).scalars().all()
+    uploaded_counts: dict[str, int] = {}
+    for cat in docs:
+        uploaded_counts[cat] = uploaded_counts.get(cat, 0) + 1
+
+    waivers = (await db.execute(
+        select(DocumentWaiver.category).where(DocumentWaiver.shipment_id == shipment.id)
+    )).scalars().all()
+    waived = set(waivers)
+
+    items = [
+        {
+            "category": cat,
+            "uploaded": uploaded_counts.get(cat, 0) > 0,
+            "uploaded_count": uploaded_counts.get(cat, 0),
+            "waived": cat in waived,
+        }
+        for cat in required
+    ]
+    # Applicable = required minus waived; present = uploaded & applicable
+    applicable = [it for it in items if not it["waived"]]
+    present = sum(1 for it in applicable if it["uploaded"])
+    missing = [it["category"] for it in applicable if not it["uploaded"]]
+    return {
+        "items": items,
+        "required": len(applicable),
+        "present": present,
+        "waived": len(items) - len(applicable),
+        "missing": missing,
+    }
+
+
+@router.get("/{shipment_id}/checklist")
+async def document_checklist(
+    shipment_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    """Required documents for this shipment: uploaded / missing / N/A."""
+    result = await db.execute(
+        select(Shipment)
+        .where(Shipment.id == uuid.UUID(shipment_id), Shipment.tenant_id == tenant_id)
+        .options(selectinload(Shipment.containers))
+    )
+    shipment = result.scalar_one_or_none()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    return await _build_checklist(shipment, tenant_id, db)
+
+
+@router.put("/{shipment_id}/waive/{category}")
+async def waive_document(
+    shipment_id: str,
+    category: str,
+    body: WaiveIn = WaiveIn(),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Mark a required document as not-applicable for this shipment."""
+    if category not in DOC_CATEGORIES:
+        raise HTTPException(status_code=422, detail=f"'{category}' is not a required document category")
+    await _get_shipment(shipment_id, user.tenant_id, db)
+
+    existing = (await db.execute(
+        select(DocumentWaiver).where(
+            DocumentWaiver.shipment_id == uuid.UUID(shipment_id),
+            DocumentWaiver.category == category,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        existing.note = body.note
+    else:
+        db.add(DocumentWaiver(
+            shipment_id=uuid.UUID(shipment_id),
+            tenant_id=user.tenant_id,
+            category=category,
+            note=body.note,
+        ))
+    await db.commit()
+    return {"waived": True, "category": category}
+
+
+@router.delete("/{shipment_id}/waive/{category}")
+async def unwaive_document(
+    shipment_id: str,
+    category: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    """Restore a previously N/A'd document to the required list."""
+    waiver = (await db.execute(
+        select(DocumentWaiver).where(
+            DocumentWaiver.shipment_id == uuid.UUID(shipment_id),
+            DocumentWaiver.category == category,
+            DocumentWaiver.tenant_id == tenant_id,
+        )
+    )).scalar_one_or_none()
+    if not waiver:
+        raise HTTPException(status_code=404, detail="No waiver for this category")
+    await db.delete(waiver)
+    await db.commit()
+    return {"waived": False, "category": category}
 
 
 @router.get("/{shipment_id}")

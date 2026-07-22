@@ -19,6 +19,7 @@ const KIND_ICON: Record<string, string> = {
   checklist_overdue: "📋",
   arriving_soon: "🚢",
   eta_changed: "📅",
+  missing_docs: "📄",
 };
 
 export function GlobalAlertsBanner() {

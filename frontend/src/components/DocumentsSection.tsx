@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../lib/LanguageContext";
 import { isDemoMode } from "../lib/auth";
 import { formatDateTime } from "../lib/utils";
+import type { DocChecklist } from "../api/shipments";
 
 interface Doc {
   id: string;
@@ -53,16 +54,40 @@ export function DocumentsSection({ shipmentId }: Props) {
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<string>("other");
   const [error, setError]       = useState<string | null>(null);
+  const [checklist, setChecklist] = useState<DocChecklist | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Load documents from API (non-demo)
+  function loadChecklist() {
+    if (demo) return;
+    fetch(`${BASE}/documents/${shipmentId}/checklist`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(setChecklist)
+      .catch(() => {});
+  }
+
+  // Load documents + required-docs checklist from API (non-demo)
   useEffect(() => {
     if (demo) return;
     fetch(`${BASE}/documents/${shipmentId}`, { headers: authHeaders() })
       .then(r => r.ok ? r.json() : [])
       .then(setDocs)
       .catch(() => {});
+    loadChecklist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shipmentId, demo]);
+
+  async function setWaived(cat: string, waived: boolean) {
+    try {
+      await fetch(`${BASE}/documents/${shipmentId}/waive/${cat}`, {
+        method: waived ? "PUT" : "DELETE",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: waived ? JSON.stringify({}) : undefined,
+      });
+      loadChecklist();
+    } catch {
+      setError("Couldn't update document status");
+    }
+  }
 
   // ── Demo file handling ────────────────────────────────────────────────────
   function handleDemoFiles(files: FileList | null) {
@@ -111,6 +136,7 @@ export function DocumentsSection({ shipmentId }: Props) {
         const doc = await resp.json();
         setDocs(prev => [doc, ...prev]);
       }
+      loadChecklist();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -138,6 +164,7 @@ export function DocumentsSection({ shipmentId }: Props) {
         headers: authHeaders(),
       });
       setDocs(prev => prev.filter(d => d.id !== id));
+      loadChecklist();
     } catch {
       setError("Delete failed");
     }
@@ -178,6 +205,50 @@ export function DocumentsSection({ shipmentId }: Props) {
   return (
     <div className="card p-5">
       <h2 className="text-sm font-semibold text-slate-700 mb-4">{t.documentsTitle}</h2>
+
+      {/* Required-documents matrix — knows what this shipment needs */}
+      {!demo && checklist && checklist.items.length > 0 && (
+        <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-slate-600">
+              Required documents — {checklist.present} of {checklist.required}
+              {checklist.waived > 0 && <span className="text-slate-400 font-normal"> · {checklist.waived} N/A</span>}
+            </p>
+            {checklist.missing.length === 0 && checklist.required > 0 && (
+              <span className="text-[11px] text-green-600 font-medium">All in hand ✓</span>
+            )}
+          </div>
+          <ul className="space-y-1">
+            {checklist.items.map(it => (
+              <li key={it.category} className="flex items-center gap-2 text-xs">
+                <span className="w-4 text-center shrink-0">
+                  {it.waived
+                    ? <span className="text-slate-300">—</span>
+                    : it.uploaded
+                      ? <span className="text-green-600">✓</span>
+                      : <span className="text-amber-500">○</span>}
+                </span>
+                <span className={`flex-1 min-w-0 truncate ${it.waived ? "text-slate-400 line-through" : it.uploaded ? "text-slate-600" : "text-slate-700 font-medium"}`}>
+                  {t.docCategory[it.category] ?? it.category}
+                </span>
+                {it.waived ? (
+                  <>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">N/A</span>
+                    <button onClick={() => setWaived(it.category, false)} className="text-[10px] text-slate-400 hover:text-slate-700">Restore</button>
+                  </>
+                ) : it.uploaded ? (
+                  <span className="text-[10px] text-green-600">Uploaded</span>
+                ) : (
+                  <>
+                    <button onClick={() => { setCategory(it.category); fileRef.current?.click(); }} className="text-[10px] text-red-600 hover:text-red-700 font-medium">Upload</button>
+                    <button onClick={() => setWaived(it.category, true)} className="text-[10px] text-slate-400 hover:text-slate-600">Mark N/A</button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Upload zone */}
       <div

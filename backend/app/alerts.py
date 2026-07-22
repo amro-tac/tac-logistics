@@ -18,7 +18,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.doc_requirements import categories_for, required_categories
 from app.models.checklist import ChecklistItem
+from app.models.document import ShipmentDocument, DocumentWaiver
 from app.models.shipment import Shipment, ShipmentStatus
 
 DEFAULT_FREE_DAYS = 5
@@ -79,6 +81,24 @@ async def compute_alerts(tenant_id, db: AsyncSession) -> list[dict]:
     for sid, item_id in done_rows:
         done.setdefault(sid, set()).add(item_id)
 
+    ship_ids = [s.id for s in shipments]
+    # Uploaded doc categories per shipment
+    doc_rows = (await db.execute(
+        select(ShipmentDocument.shipment_id, ShipmentDocument.category)
+        .where(ShipmentDocument.shipment_id.in_(ship_ids))
+    )).all()
+    uploaded_cats: dict = {}
+    for sid, cat in doc_rows:
+        uploaded_cats.setdefault(sid, set()).add(cat)
+    # Waived (N/A) categories per shipment
+    waiver_rows = (await db.execute(
+        select(DocumentWaiver.shipment_id, DocumentWaiver.category)
+        .where(DocumentWaiver.shipment_id.in_(ship_ids))
+    )).all()
+    waived_cats: dict = {}
+    for sid, cat in waiver_rows:
+        waived_cats.setdefault(sid, set()).add(cat)
+
     alerts: list[dict] = []
 
     def add(shipment: Shipment, kind: str, level: str, message: str):
@@ -129,6 +149,22 @@ async def compute_alerts(tenant_id, db: AsyncSession) -> list[dict]:
                 add(s, "arriving_soon", "warning",
                     f"Arrives in {int(days_to_eta)}d with {len(open_items)} item"
                     f"{'s' if len(open_items) != 1 else ''} still open")
+
+        # ── Missing required documents before arrival ─────────────────────────
+        if s.eta and not s.ata:
+            days_to_eta = (s.eta - now).total_seconds() / 86400
+            cats = categories_for([c.commodity for c in s.containers])
+            required = required_categories(s.clearance_path.value, cats)
+            missing = [
+                c for c in required
+                if c not in uploaded_cats.get(s.id, set()) and c not in waived_cats.get(s.id, set())
+            ]
+            if missing and days_to_eta <= 10:
+                n = len(missing)
+                level = "critical" if days_to_eta <= 3 else "warning"
+                add(s, "missing_docs", level,
+                    f"{n} required document{'s' if n != 1 else ''} missing "
+                    f"(arrives in {max(0, int(days_to_eta))}d)")
 
         # ── ETA changed recently ──────────────────────────────────────────────
         if s.eta_last_updated and (now - s.eta_last_updated).total_seconds() < 3 * 86400:
