@@ -207,6 +207,35 @@ export interface DocChecklist {
   missing: string[];
 }
 
+export interface CashflowObligation {
+  kind: "downpayment" | "balance";
+  amount: number;
+  due_now: boolean;
+  due_hint: string;
+}
+
+export interface CashflowOrder {
+  shipment_id: string;
+  reference: string;
+  order_number: string | null;
+  supplier_name: string | null;
+  status: string;
+  eta: string | null;
+  total_usd: number;
+  paid_usd: number;
+  outstanding_usd: number;
+  payment_status: "unpaid" | "partial" | "paid";
+  obligation: CashflowObligation | null;
+}
+
+export interface Cashflow {
+  total_outstanding_usd: number;
+  downpayments_due: { count: number; amount: number };
+  balances_due: { count: number; amount: number };
+  order_count: number;
+  orders: CashflowOrder[];
+}
+
 export interface CarrierPreferenceRow {
   category: string;
   carrier_id: string;
@@ -343,6 +372,8 @@ export const api = {
   }),
 
   getCostSummary: () => request<CostSummary>("/shipments/reports/cost-summary"),
+
+  getCashflow: () => request<Cashflow>("/shipments/reports/cashflow"),
 
   addPayment: (shipmentId: string, body: {
     amount_usd: number;

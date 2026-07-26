@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.deps import get_current_tenant_id
 from app.models.shipment import Shipment
+from app.models.supplier import Supplier
 from app.models.finance import ShipmentFinance, ShipmentPayment, ShipmentOrderItem, PaymentKind
 
 router = APIRouter(prefix="/shipments", tags=["finance"])
@@ -143,6 +144,113 @@ async def _finance_payload(shipment_id: uuid.UUID, tenant_id: uuid.UUID, db: Asy
         "landed_cost_usd": landed,
         "payments": [_payment_out(p) for p in payments],
         "items": [_item_out(i) for i in items],
+    }
+
+
+# ── Cashflow: what's owed to suppliers, and when ──────────────────────────────
+
+@router.get("/reports/cashflow")
+async def cashflow(
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    """Orders (shipments with an order value) and their outstanding payments.
+
+    Payment schedule from the standard terms: a downpayment is due before
+    production; the balance is due against the B/L copy (i.e. once booked).
+    """
+    rows = (await db.execute(
+        select(ShipmentFinance, Shipment, Supplier)
+        .join(Shipment, Shipment.id == ShipmentFinance.shipment_id)
+        .join(Supplier, Supplier.id == Shipment.supplier_id, isouter=True)
+        .where(
+            ShipmentFinance.tenant_id == tenant_id,
+            ShipmentFinance.total_value_usd.isnot(None),
+        )
+    )).all()
+
+    pay_rows = (await db.execute(
+        select(ShipmentPayment.shipment_id, ShipmentPayment.amount_usd)
+        .where(ShipmentPayment.tenant_id == tenant_id)
+    )).all()
+    paid_by: dict = {}
+    for sid, amt in pay_rows:
+        paid_by[sid] = paid_by.get(sid, 0.0) + float(amt)
+
+    orders = []
+    total_outstanding = 0.0
+    dp_due_count = dp_due_amt = 0
+    bal_due_count = bal_due_amt = 0.0
+
+    for fin, ship, sup in rows:
+        total = float(fin.total_value_usd)
+        paid = round(paid_by.get(ship.id, 0.0), 2)
+        outstanding = round(max(0.0, total - paid), 2)
+        pct = float(fin.downpayment_pct) if fin.downpayment_pct is not None else None
+        dp_amt = round(total * pct / 100, 2) if pct else None
+        status = ship.status.value
+        is_draft = status == "draft"
+
+        obligation = None
+        if outstanding > 0.005:
+            if dp_amt and paid < dp_amt - 0.005:
+                obligation = {
+                    "kind": "downpayment",
+                    "amount": round(dp_amt - paid, 2),
+                    "due_now": True,
+                    "due_hint": "before production",
+                }
+            else:
+                obligation = {
+                    "kind": "balance",
+                    "amount": outstanding,
+                    "due_now": not is_draft,
+                    "due_hint": "now — B/L issued" if not is_draft else "on B/L",
+                }
+
+        payment_status = "paid" if outstanding <= 0.005 else ("partial" if paid > 0 else "unpaid")
+
+        orders.append({
+            "shipment_id": str(ship.id),
+            "reference": ship.reference,
+            "order_number": fin.order_number,
+            "supplier_name": sup.name if sup else None,
+            "status": status,
+            "eta": ship.eta.isoformat() if ship.eta else None,
+            "total_usd": total,
+            "paid_usd": paid,
+            "outstanding_usd": outstanding,
+            "payment_status": payment_status,
+            "obligation": obligation,
+        })
+
+        total_outstanding += outstanding
+        if obligation and obligation["kind"] == "downpayment":
+            dp_due_count += 1
+            dp_due_amt += obligation["amount"]
+        elif obligation and obligation["due_now"]:
+            bal_due_count += 1
+            bal_due_amt += obligation["amount"]
+
+    def _rank(o):
+        ob = o["obligation"]
+        eta = o["eta"] or "9999"
+        if not ob:
+            return (3, eta)
+        if ob["kind"] == "downpayment":
+            return (0, eta)
+        if ob["due_now"]:
+            return (1, eta)
+        return (2, eta)
+
+    orders.sort(key=_rank)
+
+    return {
+        "total_outstanding_usd": round(total_outstanding, 2),
+        "downpayments_due": {"count": dp_due_count, "amount": round(dp_due_amt, 2)},
+        "balances_due": {"count": bal_due_count, "amount": round(bal_due_amt, 2)},
+        "order_count": len(orders),
+        "orders": orders,
     }
 
 
