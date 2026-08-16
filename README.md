@@ -4,6 +4,13 @@ Import-shipment tracking platform for bringing containerized cargo into Haifa an
 clearing it through PA / Israeli customs. Tracks each shipment from booking to
 release, plus finance, documents, freight rates, alerts, and cashflow.
 
+<img width="2428" height="1726" alt="preview-screenshot2" src="https://github.com/user-attachments/assets/9e70234b-46ab-4d7c-82d8-2e4d329e8389" />
+
+<img width="2428" height="1726" alt="preview-screenshot" src="https://github.com/user-attachments/assets/25c9da6f-b810-4e34-b61c-787754a574a5" />
+
+<img width="2428" height="1726" alt="preview-screenshot3" src="https://github.com/user-attachments/assets/d91c1383-1691-407c-8a29-47fd32f325e4" />
+
+
 **Stack:** FastAPI + SQLAlchemy/Alembic (SQLite by default, Postgres-ready) ·
 React + Vite + Tailwind · JWT auth · bilingual EN/AR.
 
