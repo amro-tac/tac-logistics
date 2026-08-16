@@ -50,3 +50,15 @@ export const STAGE_ORDER: ShipmentStatus[] = [
   "draft", "booked", "in_transit", "at_port",
   "customs", "released", "received", "closed",
 ];
+
+// Free live-vessel lookup links (VesselFinder / MarineTraffic). IMO is more
+// reliable than a name search when available. Zero API cost — from the Amigo fork.
+export const vesselFinderUrl = (name: string, imo?: string | null) =>
+  imo
+    ? `https://www.vesselfinder.com/vessels/details/${encodeURIComponent(imo)}`
+    : `https://www.vesselfinder.com/vessels?name=${encodeURIComponent(name)}`;
+
+export const marineTrafficUrl = (name: string, imo?: string | null) =>
+  imo
+    ? `https://www.marinetraffic.com/en/ais/details/ships/imo:${encodeURIComponent(imo)}`
+    : `https://www.marinetraffic.com/en/ais/index/search/all?keyword=${encodeURIComponent(name)}`;

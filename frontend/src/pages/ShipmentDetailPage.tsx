@@ -15,7 +15,7 @@ import { ShipmentNotes } from "../components/ShipmentNotes";
 import { StageAdvanceButton } from "../components/StageAdvanceButton";
 import { DocumentsSection } from "../components/DocumentsSection";
 import { AlertsPanel } from "../components/AlertsPanel";
-import { formatDate, daysUntil } from "../lib/utils";
+import { formatDate, daysUntil, vesselFinderUrl } from "../lib/utils";
 import { useLanguage } from "../lib/LanguageContext";
 import { clearToken, isDemoMode } from "../lib/auth";
 import type { ShipmentStatus } from "../types/shipment";
@@ -236,6 +236,15 @@ export function ShipmentDetailPage() {
                 <p className="text-sm text-slate-500 mt-0.5">
                   {shipment.vessel_name}
                   {shipment.voyage_number && ` · ${shipment.voyage_number}`}
+                  <a
+                    href={vesselFinderUrl(shipment.vessel_name)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Live position on VesselFinder (free)"
+                    className="ms-2 text-xs font-medium text-blue-500 hover:text-blue-700 hover:underline"
+                  >
+                    🌐 Track live
+                  </a>
                 </p>
               )}
             </div>
