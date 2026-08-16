@@ -130,8 +130,11 @@ async def compute_alerts(tenant_id, db: AsyncSession) -> list[dict]:
                     "Free time ends today — clear the container now" if left == 0
                     else f"Free time ends in {left} day{'s' if left != 1 else ''}")
 
+        # Tracking-only shipments skip all compliance alerts (docs/checklist).
+        compliance = not getattr(s, "tracking_only", False)
+
         # ── Checklist vs ETA ──────────────────────────────────────────────────
-        if s.eta and not s.ata:
+        if compliance and s.eta and not s.ata:
             days_to_eta = (s.eta - now).total_seconds() / 86400
             done_ids = done.get(s.id, set())
             path = s.clearance_path.value
@@ -151,7 +154,7 @@ async def compute_alerts(tenant_id, db: AsyncSession) -> list[dict]:
                     f"{'s' if len(open_items) != 1 else ''} still open")
 
         # ── Missing required documents before arrival ─────────────────────────
-        if s.eta and not s.ata:
+        if compliance and s.eta and not s.ata:
             days_to_eta = (s.eta - now).total_seconds() / 86400
             cats = categories_for([c.commodity for c in s.containers])
             required = required_categories(s.clearance_path.value, cats)

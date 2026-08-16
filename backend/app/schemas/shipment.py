@@ -114,6 +114,7 @@ class ShipmentUpdate(BaseModel):
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
     atd: Optional[datetime] = None
+    tracking_only: Optional[bool] = None
     notes: Optional[str] = None
 
 
@@ -137,6 +138,7 @@ class ShipmentOut(BaseModel):
     ata: Optional[datetime]
     eta_last_updated: Optional[datetime]
     tracking_active: bool
+    tracking_only: bool = False
     notes: Optional[str]
     shipsgo_shipment_id: Optional[int] = None
     route_geojson: Optional[str] = None

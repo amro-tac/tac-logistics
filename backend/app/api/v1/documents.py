@@ -42,6 +42,9 @@ class WaiveIn(BaseModel):
 
 
 async def _build_checklist(shipment: Shipment, tenant_id: uuid.UUID, db: AsyncSession) -> dict:
+    # Tracking-only shipments have no compliance requirements.
+    if getattr(shipment, "tracking_only", False):
+        return {"items": [], "required": 0, "present": 0, "waived": 0, "missing": [], "tracking_only": True}
     commodities = [c.commodity for c in shipment.containers]
     cats = categories_for(commodities)
     required = required_categories(shipment.clearance_path.value, cats)

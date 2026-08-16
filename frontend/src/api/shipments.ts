@@ -309,6 +309,9 @@ export const api = {
     }
   ) => request<Shipment>(`/shipments/${id}/book`, { method: "POST", body: JSON.stringify(body) }),
 
+  updateShipment: (id: string, body: { tracking_only?: boolean; notes?: string | null }) =>
+    request<Shipment>(`/shipments/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+
   advanceShipment: (id: string, status: ShipmentStatus) =>
     request<Shipment>(`/shipments/${id}/advance`, {
       method: "POST",

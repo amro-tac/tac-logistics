@@ -388,8 +388,30 @@ export function ShipmentDetailPage() {
           </div>
         )}
 
-        {/* Pre-arrival checklist — shown once booked and ETA is known */}
-        {showChecklist && (
+        {/* Tracking-only toggle — a third party clears this shipment end-to-end */}
+        {!isDraft && (
+          <div className="card px-5 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-700">{t.trackingOnly}</p>
+              <p className="text-xs text-slate-400">{t.trackingOnlyHint}</p>
+            </div>
+            <button
+              onClick={async () => {
+                const next = !shipment.tracking_only;
+                setShipment(prev => prev ? { ...prev, tracking_only: next } : prev);
+                try { await api.updateShipment(shipment.id, { tracking_only: next }); }
+                catch { setShipment(prev => prev ? { ...prev, tracking_only: !next } : prev); }
+              }}
+              className={`shrink-0 w-11 h-6 rounded-full transition-colors relative ${shipment.tracking_only ? "bg-red-600" : "bg-slate-300"}`}
+              title={t.trackingOnly}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${shipment.tracking_only ? "start-[22px]" : "start-0.5"}`} />
+            </button>
+          </div>
+        )}
+
+        {/* Pre-arrival checklist — shown once booked, ETA known, and not tracking-only */}
+        {showChecklist && !shipment.tracking_only && (
           <PreArrivalChecklist
             shipmentId={shipment.id}
             eta={shipment.eta!}

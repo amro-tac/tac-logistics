@@ -66,6 +66,7 @@ export interface Shipment {
   ata: string | null;
   eta_last_updated: string | null;
   tracking_active: boolean;
+  tracking_only?: boolean;
   notes: string | null;
   shipsgo_shipment_id?: number | null;
   route_geojson?: string | null;
