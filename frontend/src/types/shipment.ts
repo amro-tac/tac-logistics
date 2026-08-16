@@ -67,6 +67,12 @@ export interface Shipment {
   eta_last_updated: string | null;
   tracking_active: boolean;
   notes: string | null;
+  shipsgo_shipment_id?: number | null;
+  route_geojson?: string | null;
+  current_leg_from?: string | null;
+  current_leg_from_at?: string | null;
+  current_leg_to?: string | null;
+  current_leg_to_at?: string | null;
   created_at: string;
   updated_at: string;
   containers: Container[];
@@ -87,6 +93,9 @@ export interface ShipmentListItem {
   atd: string | null;
   ata: string | null;
   tracking_active: boolean;
+  route_geojson?: string | null;
+  current_leg_from?: string | null;
+  current_leg_to?: string | null;
   created_at: string;
   containers: Container[];
 }

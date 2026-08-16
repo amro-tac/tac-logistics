@@ -106,6 +106,37 @@ function makeAnchorIcon(color: string): L.DivIcon {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// ShipsGo's real route (GeoJSON) → renderable segments + live position.
+// Dormant until a ShipsGo key populates route_geojson; returns null on any issue.
+function parseShipsGoRoute(raw: string): { segments: { coords: [number, number][]; status?: string }[]; pos: [number, number]; bearing: number } | null {
+  try {
+    const fc = JSON.parse(raw);
+    const features: any[] = fc?.features ?? [];
+    const lines = features.filter(f => f?.geometry?.type === "LineString" && Array.isArray(f.geometry.coordinates));
+    if (!lines.length) return null;
+    const segments = lines.map(f => ({
+      coords: (f.geometry.coordinates as [number, number][]).map(([lng, lat]) => [lat, lng] as [number, number]),
+      status: f?.properties?.status as string | undefined,
+    }));
+    const current = lines.find(f => f?.properties?.status === "CURRENT" && f?.properties?.current);
+    if (!current) return null;
+    const cur = current.properties.current;
+    const [lng, lat] = cur.coordinates as [number, number];
+    const coords = current.geometry.coordinates as [number, number][];
+    const idx = Math.min(Math.max(cur.index ?? 1, 1), coords.length - 1);
+    const [pLng, pLat] = coords[idx - 1];
+    return { segments, pos: [lat, lng], bearing: getBearing([pLat, pLng], [lat, lng]) };
+  } catch {
+    return null;
+  }
+}
+
+function geojsonSegmentStyle(color: string, status: string | undefined): L.PathOptions {
+  if (status === "FUTURE") return { color, weight: 1.5, opacity: 0.35, dashArray: "5 8" };
+  if (status === "CURRENT") return { color, weight: 2.5, opacity: 0.85 };
+  return { color, weight: 1.5, opacity: 0.45 }; // PAST
+}
+
 export function WorldMap({ shipments, onSelectShipment }: Props) {
   const { t } = useLanguage();
   const mapRef     = useRef<HTMLDivElement>(null);
@@ -202,8 +233,15 @@ export function WorldMap({ shipments, onSelectShipment }: Props) {
           const from = pol ?? pod;
           const route = getSeaRoute(from, pod);
 
-          // Full dashed route line
-          add(L.polyline(route, { color, weight: 1.5, opacity: 0.3, dashArray: "5 8" }));
+          // Real ShipsGo route when available, else the guessed port-to-port line
+          const realRoute = ship.route_geojson ? parseShipsGoRoute(ship.route_geojson) : null;
+          if (realRoute) {
+            for (const seg of realRoute.segments) {
+              if (seg.coords.length >= 2) add(L.polyline(seg.coords, geojsonSegmentStyle(color, seg.status)));
+            }
+          } else {
+            add(L.polyline(route, { color, weight: 1.5, opacity: 0.3, dashArray: "5 8" }));
+          }
 
           if (ship.status === "in_transit" && ship.etd && ship.eta) {
             const departedAt = ship.atd ?? ship.etd;

@@ -167,6 +167,9 @@ class ShipmentListItem(BaseModel):
     atd: Optional[datetime]
     ata: Optional[datetime]
     tracking_active: bool
+    route_geojson: Optional[str] = None
+    current_leg_from: Optional[str] = None
+    current_leg_to: Optional[str] = None
     created_at: datetime
     containers: list[ContainerOut] = []
 
