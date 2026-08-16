@@ -66,7 +66,7 @@ class Shipment(TenantScoped):
     # checklist requirements and their alerts, but keep position/ETA tracking.
     tracking_only = Column(Boolean, default=False, nullable=False, server_default="0")
 
-    # ShipsGo tracking (from the Amigo fork) — real voyage data + route
+    # ShipsGo tracking — real voyage data + route
     shipsgo_shipment_id = Column(Integer)
     route_geojson = Column(Text)              # ShipsGo's real route as GeoJSON
     current_leg_from = Column(String)         # port the ship is sailing from now

@@ -52,7 +52,7 @@ export const STAGE_ORDER: ShipmentStatus[] = [
 ];
 
 // Free live-vessel lookup links (VesselFinder / MarineTraffic). IMO is more
-// reliable than a name search when available. Zero API cost — from the Amigo fork.
+// reliable than a name search when available. Zero API cost.
 export const vesselFinderUrl = (name: string, imo?: string | null) =>
   imo
     ? `https://www.vesselfinder.com/vessels/details/${encodeURIComponent(imo)}`

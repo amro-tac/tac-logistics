@@ -3,7 +3,7 @@ export type LatLng = [number, number];
 // ── Port coordinate database ─────────────────────────────────────────────────
 
 const PORTS: Record<string, LatLng> = {
-  // Australia / Oceania (from the Amigo fork — a Brisbane B/L was rendering at Haifa)
+  // Australia / Oceania (a Brisbane B/L was rendering at Haifa)
   "brisbane":     [-27.380, 153.170],
   "sydney":       [-33.970, 151.200],
   "melbourne":    [-37.830, 144.920],

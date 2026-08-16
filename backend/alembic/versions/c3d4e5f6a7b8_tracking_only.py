@@ -2,7 +2,7 @@
 
 When a third party handles clearance end-to-end, skip document/checklist
 requirements and their alerts while keeping position/ETA tracking.
-(From the Amigo fork — kept as a flag rather than adopting the full
+(Kept as a flag rather than adopting the full
 clearance-path removal.)
 
 Revision ID: c3d4e5f6a7b8

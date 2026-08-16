@@ -1,5 +1,5 @@
 """ShipsGo v2 integration — the channel that feeds B/L voyage data back into
-the app. Ported (async) from the Amigo importer fork.
+the app. Async ShipsGo v2 integration.
 
 Terminal49's free tier is write-only; ShipsGo charges ~1 credit per B/L and
 then reads are free.

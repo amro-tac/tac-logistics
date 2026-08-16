@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     TERMINAL49_API_KEY: str = ""
     TERMINAL49_WEBHOOK_SECRET: str = ""
 
-    # ShipsGo v2 (from the Amigo fork) — the B/L data-return channel.
+    # ShipsGo v2 — the B/L data-return channel.
     # Terminal49's free tier is write-only; ShipsGo charges ~1 credit per B/L
     # then reads are free. AUTH_CODE is a real secret; EMBED_TOKEN is public.
     SHIPSGO_AUTH_CODE: str = ""

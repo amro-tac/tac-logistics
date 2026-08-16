@@ -1,6 +1,6 @@
 """Add ShipsGo tracking columns to shipments
 
-Real voyage data + route from ShipsGo (ported from the Amigo fork):
+Real voyage data + route from ShipsGo:
 the shipment's ShipsGo id, its cached GeoJSON route, and the current leg
 (port-to-port the ship is actually on) for accurate map placement.
 
