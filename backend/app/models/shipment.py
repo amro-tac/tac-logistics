@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import Column, String, Enum, ForeignKey, DateTime, Numeric, Boolean, Text, Uuid
+from sqlalchemy import Column, String, Enum, ForeignKey, DateTime, Numeric, Boolean, Text, Uuid, Integer
 from sqlalchemy.orm import relationship
 from app.models.base import TenantScoped, Base
 
@@ -61,6 +61,14 @@ class Shipment(TenantScoped):
     tracking_active = Column(Boolean, default=False, nullable=False)
     terminal49_shipment_id = Column(String)
     notes = Column(Text)
+
+    # ShipsGo tracking (from the Amigo fork) — real voyage data + route
+    shipsgo_shipment_id = Column(Integer)
+    route_geojson = Column(Text)              # ShipsGo's real route as GeoJSON
+    current_leg_from = Column(String)         # port the ship is sailing from now
+    current_leg_from_at = Column(DateTime)
+    current_leg_to = Column(String)           # next port
+    current_leg_to_at = Column(DateTime)
 
     supplier = relationship("Supplier", foreign_keys=[supplier_id])
     carrier = relationship("Carrier", foreign_keys=[carrier_id])

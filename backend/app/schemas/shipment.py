@@ -138,6 +138,12 @@ class ShipmentOut(BaseModel):
     eta_last_updated: Optional[datetime]
     tracking_active: bool
     notes: Optional[str]
+    shipsgo_shipment_id: Optional[int] = None
+    route_geojson: Optional[str] = None
+    current_leg_from: Optional[str] = None
+    current_leg_from_at: Optional[datetime] = None
+    current_leg_to: Optional[str] = None
+    current_leg_to_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     containers: list[ContainerOut] = []

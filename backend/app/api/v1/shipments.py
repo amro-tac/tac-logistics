@@ -324,6 +324,20 @@ async def book_shipment(
         except Exception:
             log.warning("Terminal49 registration failed for B/L %s — tracking will be manual", body.bl_number)
 
+    # Register with ShipsGo — the reliable read channel (best-effort, non-blocking).
+    # Only fires when SHIPSGO_AUTH_CODE is set, so the user controls credit spend.
+    if body.bl_number:
+        from app import shipsgo
+        if shipsgo.is_configured():
+            try:
+                await shipsgo.register_bl(body.bl_number, reference=shipment.reference)
+                await db.execute(
+                    update(Shipment).where(Shipment.id == ship_id).values(tracking_active=True)
+                )
+                await db.commit()
+            except Exception as exc:
+                log.warning("ShipsGo registration failed for B/L %s: %s", body.bl_number, exc)
+
     result = await db.execute(
         select(Shipment)
         .options(*_load_options())

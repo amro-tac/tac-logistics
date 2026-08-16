@@ -17,9 +17,11 @@ async def lifespan(app: FastAPI):
     # Background loops — each is a no-op if its config is missing
     from app.email_scanner import start_email_scanner_loop
     from app.digest import start_digest_loop
+    from app.shipsgo import poll_forever as shipsgo_poll
     tasks = [
         asyncio.create_task(start_email_scanner_loop()),
         asyncio.create_task(start_digest_loop()),
+        asyncio.create_task(shipsgo_poll()),
     ]
 
     yield
